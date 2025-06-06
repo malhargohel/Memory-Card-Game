@@ -32,7 +32,7 @@ A fun and interactive memory card matching game built with Python Flask and vani
 
 - **Backend**: Python 3.x, Flask
 - **Frontend**: HTML5, CSS3, JavaScript (ES6+)
-- **Deployment**: Heroku/Railway/Render ready
+- **Deployment**: Railway
 - **Styling**: Custom CSS with Flexbox and Grid
 
 ## 📋 Prerequisites
