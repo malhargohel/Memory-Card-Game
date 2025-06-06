@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Memory Card Game</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>🧠 Memory Card Game</h1>
+        
+        <div class="game-info">
+            <div class="stats">
+                <span>Moves: <span id="moves">0</span></span>
+                <span>Pairs: <span id="pairs">0</span>/<span id="total-pairs">0</span></span>
+            </div>
+            <div class="controls">
+                <select id="difficulty">
+                    <option value="easy">Easy (6 pairs)</option>
+                    <option value="medium">Medium (8 pairs)</option>
+                    <option value="hard">Hard (12 pairs)</option>
+                </select>
+                <button id="new-game-btn">New Game</button>
+            </div>
+        </div>
+        
+        <div id="game-board" class="game-board"></div>
+        
+        <div id="win-message" class="win-message hidden">
+            <h2>🎉 Congratulations!</h2>
+            <p>You completed the game in <span id="final-moves"></span> moves!</p>
+            <button id="play-again-btn">Play Again</button>
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
