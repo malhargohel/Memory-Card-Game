@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Statistics - Memory Card Game</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📊 Your Statistics</h1>
+            <div class="user-info">
+                <span>{{ session.username }}</span>
+                <a href="{{ url_for('index') }}" class="btn btn-primary">Back to Game</a>
+                <a href="{{ url_for('logout') }}" class="btn btn-secondary">Logout</a>
+            </div>
+        </header>
+        
+        <div class="stats-container">
+            {% if stats %}
+                <div class="stats-grid">
+                    {% for stat in stats %}
+                    <div class="stat-card">
+                        <h3>{{ stat[5].title() }} - {{ stat[6].title() }}</h3>
+                        <div class="stat-details">
+                            <div class="stat-item">
+                                <span class="stat-label">Games Played:</span>
+                                <span class="stat-value">{{ stat[0] }}</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Average Moves:</span>
+                                <span class="stat-value">{{ "%.1f"|format(stat[1]) if stat[1] else 'N/A' }}</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Average Time:</span>
+                                <span class="stat-value">
+                                    {% if stat[2] %}
+                                        {{ "%d:%02d"|format(stat[2]//60, stat[2]%60) }}
+                                    {% else %}
+                                        N/A
+                                    {% endif %}
+                                </span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Best Moves:</span>
+                                <span class="stat-value">{{ stat[3] if stat[3] else 'N/A' }}</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Best Time:</span>
+                                <span class="stat-value">
+                                    {% if stat[4] %}
+                                        {{ "%d:%02d"|format(stat[4]//60, stat[4]%60) }}
+                                    {% else %}
+                                        N/A
+                                    {% endif %}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="no-stats">
+                    <h2>No games played yet!</h2>
+                    <p>Start playing to see your statistics here.</p>
+                    <a href="{{ url_for('index') }}" class="btn btn-primary">Play Your First Game</a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>
