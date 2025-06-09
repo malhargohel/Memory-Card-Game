@@ -5,11 +5,10 @@ import sqlite3
 import uuid
 import random
 import time
-from datetime import datetime
 import os
 
 app = Flask(__name__)
-app.secret_key = 'your-secret-key-here-change-this-to-something-random'
+app.secret_key = os.environ.get('SECRET_KEY', 'your-secret-key-here-change-this-to-something-random')
 
 # Card themes
 CARD_THEMES = {
@@ -63,27 +62,46 @@ def init_db():
     conn.close()
 
 def get_user_stats(user_id):
-    """Get user statistics from database"""
+    """Get aggregated user statistics from the database."""
     conn = sqlite3.connect('memory_game.db')
     cursor = conn.cursor()
     
     cursor.execute('''
         SELECT 
-            COUNT(*) as games_played,
-            AVG(moves) as avg_moves,
-            AVG(time_seconds) as avg_time,
-            MIN(moves) as best_moves,
-            MIN(time_seconds) as best_time,
-            difficulty,
-            theme
+            COUNT(*),
+            SUM(moves),
+            MIN(time_seconds)
         FROM game_stats 
         WHERE user_id = ?
-        GROUP BY difficulty, theme
     ''', (user_id,))
     
-    stats = cursor.fetchall()
+    data = cursor.fetchone()
     conn.close()
+    
+    stats = {
+        'games_played': 0,
+        'games_won': 0,
+        'win_rate': 0,
+        'total_moves': 0,
+        'average_moves': 0,
+        'best_time': None
+    }
+    
+    if data and data[0] > 0:
+        games_played = data[0]
+        total_moves = data[1]
+        best_time = data[2]
+        
+        # Since we only record wins, games_played is the same as games_won
+        stats['games_played'] = games_played
+        stats['games_won'] = games_played
+        stats['win_rate'] = 100.0
+        stats['total_moves'] = total_moves
+        stats['average_moves'] = round(total_moves / games_played, 1) if games_played > 0 else 0
+        stats['best_time'] = best_time
+        
     return stats
+
 
 def save_game_result(user_id, difficulty, theme, moves, time_seconds):
     """Save game result to database"""
@@ -97,40 +115,6 @@ def save_game_result(user_id, difficulty, theme, moves, time_seconds):
     
     conn.commit()
     conn.close()
-
-def update_game_stats(won=False, moves=0, time_taken=None):
-    """Update game statistics in session"""
-    if 'game_stats' not in session:
-        session['game_stats'] = {
-            'games_played': 0,
-            'games_won': 0,
-            'total_moves': 0,
-            'best_time': None,
-            'average_moves': 0,
-            'win_rate': 0
-        }
-    
-    stats = session['game_stats']
-    
-    # Update basic stats
-    stats['games_played'] += 1
-    stats['total_moves'] += moves
-    
-    if won:
-        stats['games_won'] += 1
-        
-        # Update best time if this is better
-        if time_taken:
-            if stats['best_time'] is None or time_taken < stats['best_time']:
-                stats['best_time'] = time_taken
-    
-    # Calculate derived stats
-    if stats['games_played'] > 0:
-        stats['win_rate'] = round((stats['games_won'] / stats['games_played']) * 100, 1)
-        stats['average_moves'] = round(stats['total_moves'] / stats['games_played'], 1)
-    
-    session['game_stats'] = stats
-    session.modified = True
 
 @app.route('/')
 def index():
@@ -146,13 +130,13 @@ def login():
         
         conn = sqlite3.connect('memory_game.db')
         cursor = conn.cursor()
-        cursor.execute('SELECT id, password_hash FROM users WHERE username = ?', (username,))
+        cursor.execute('SELECT id, password_hash, username FROM users WHERE username = ?', (username,))
         user = cursor.fetchone()
         conn.close()
         
         if user and check_password_hash(user[1], password):
             session['user_id'] = user[0]
-            session['username'] = username
+            session['username'] = user[2]
             return redirect(url_for('index'))
         else:
             flash('Invalid username or password')
@@ -199,39 +183,19 @@ def stats():
     user_stats = get_user_stats(session['user_id'])
     return render_template('stats.html', stats=user_stats)
 
-@app.route('/api/stats')
-def api_stats():
-    """Return game statistics as JSON"""
-    if 'user_id' not in session:
-        return jsonify({'error': 'Not logged in'}), 401
-    
-    # Get stats from session or initialize empty stats
-    game_stats = session.get('game_stats', {
-        'games_played': 0,
-        'games_won': 0,
-        'total_moves': 0,
-        'best_time': None,
-        'average_moves': 0,
-        'win_rate': 0
-    })
-    
-    return jsonify(game_stats)
-
 @app.route('/reset_stats', methods=['POST'])
 def reset_stats():
-    """Reset all game statistics"""
+    """Reset all game statistics for the logged-in user from the database."""
     if 'user_id' not in session:
         return jsonify({'error': 'Not logged in'}), 401
     
-    session['game_stats'] = {
-        'games_played': 0,
-        'games_won': 0,
-        'total_moves': 0,
-        'best_time': None,
-        'average_moves': 0,
-        'win_rate': 0
-    }
-    session.modified = True
+    user_id = session['user_id']
+    conn = sqlite3.connect('memory_game.db')
+    cursor = conn.cursor()
+    cursor.execute('DELETE FROM game_stats WHERE user_id = ?', (user_id,))
+    conn.commit()
+    conn.close()
+    
     return jsonify({'success': True, 'message': 'Stats reset successfully'})
 
 @app.route('/api/new-game', methods=['POST'])
@@ -252,15 +216,12 @@ def new_game():
     game_id = str(uuid.uuid4())
     pairs_needed = DIFFICULTY_SETTINGS[difficulty]['pairs']
     
-    # Select random symbols from the chosen theme
     available_symbols = CARD_THEMES[theme]
     selected_symbols = random.sample(available_symbols, pairs_needed)
     
-    # Create pairs and shuffle
     cards = selected_symbols * 2
     random.shuffle(cards)
     
-    # Initialize game state
     games[game_id] = {
         'cards': cards,
         'flipped': [False] * len(cards),
@@ -277,9 +238,7 @@ def new_game():
     
     return jsonify({
         'game_id': game_id,
-        'cards': ['❓'] * len(cards),  # Hide cards initially
-        'difficulty': difficulty,
-        'theme': theme,
+        'cards': ['❓'] * len(cards),
         'grid': DIFFICULTY_SETTINGS[difficulty]['grid']
     })
 
@@ -300,106 +259,54 @@ def flip_card():
     if game['user_id'] != session['user_id']:
         return jsonify({'error': 'Unauthorized'}), 401
     
-    if game['completed']:
-        return jsonify({'error': 'Game already completed'}), 400
-    
-    if card_index < 0 or card_index >= len(game['cards']):
-        return jsonify({'error': 'Invalid card index'}), 400
+    if game['completed'] or card_index is None or card_index < 0 or card_index >= len(game['cards']):
+        return jsonify({'error': 'Invalid request'}), 400
     
     if game['flipped'][card_index] or game['matched'][card_index]:
-        return jsonify({'error': 'Card already flipped or matched'}), 400
+        return jsonify({'error': 'Card already active'}), 400
     
-    # Flip the card
     game['flipped'][card_index] = True
-    game['moves'] += 1
     
-    # Check for matches
-    flipped_indices = [i for i, flipped in enumerate(game['flipped']) if flipped and not game['matched'][i]]
+    response_data = { 'card_value': game['cards'][card_index] }
     
-    response_data = {
-        'card_value': game['cards'][card_index],
-        'moves': game['moves'],
-        'pairs_found': game['pairs_found']
-    }
+    flipped_indices = [i for i, is_flipped in enumerate(game['flipped']) if is_flipped and not game['matched'][i]]
     
+    if len(flipped_indices) % 2 == 1:
+        game['moves'] += 1 # A move is a pair of flips
+
     if len(flipped_indices) == 2:
-        # Check if the two flipped cards match
-        if game['cards'][flipped_indices[0]] == game['cards'][flipped_indices[1]]:
-            # Match found
-            game['matched'][flipped_indices[0]] = True
-            game['matched'][flipped_indices[1]] = True
+        idx1, idx2 = flipped_indices
+        if game['cards'][idx1] == game['cards'][idx2]:
+            game['matched'][idx1] = True
+            game['matched'][idx2] = True
             game['pairs_found'] += 1
             response_data['match'] = True
             response_data['matched_indices'] = flipped_indices
-            response_data['pairs_found'] = game['pairs_found']
         else:
-            # No match
             response_data['match'] = False
             response_data['flip_back'] = flipped_indices
         
-        # Reset flipped state for non-matched cards
-        for i in flipped_indices:
-            if not game['matched'][i]:
-                game['flipped'][i] = False
-    
-    # Check if game is completed
+        game['flipped'][idx1] = False
+        game['flipped'][idx2] = False
+
     if game['pairs_found'] == game['pairs_needed']:
         game['completed'] = True
         completion_time = int(time.time() - game['start_time'])
-        
-        # Save game result to database
-        save_game_result(
-            game['user_id'],
-            game['difficulty'],
-            game['theme'],
-            game['moves'],
-            completion_time
-        )
-        
-        # Update session stats
-        update_game_stats(won=True, moves=game['moves'], time_taken=completion_time)
-        
-        response_data['game_completed'] = True
-        response_data['completion_time'] = completion_time
-        response_data['final_moves'] = game['moves']
+        save_game_result(game['user_id'], game['difficulty'], game['theme'], game['moves'], completion_time)
+        response_data.update({
+            'game_completed': True,
+            'completion_time': completion_time,
+            'final_moves': game['moves']
+        })
+
+    response_data.update({
+        'moves': game['moves'],
+        'pairs_found': game['pairs_found']
+    })
     
     return jsonify(response_data)
 
-@app.route('/api/game-state/<game_id>')
-def get_game_state(game_id):
-    if 'user_id' not in session:
-        return jsonify({'error': 'Not logged in'}), 401
-    
-    if game_id not in games:
-        return jsonify({'error': 'Game not found'}), 404
-    
-    game = games[game_id]
-    
-    if game['user_id'] != session['user_id']:
-        return jsonify({'error': 'Unauthorized'}), 401
-    
-    # Return visible cards (matched cards show their value, others show ❓)
-    visible_cards = []
-    for i, card in enumerate(game['cards']):
-        if game['matched'][i]:
-            visible_cards.append(card)
-        else:
-            visible_cards.append('❓')
-    
-    current_time = int(time.time() - game['start_time']) if not game['completed'] else None
-    
-    return jsonify({
-        'cards': visible_cards,
-        'moves': game['moves'],
-        'pairs_found': game['pairs_found'],
-        'pairs_needed': game['pairs_needed'],
-        'completed': game['completed'],
-        'elapsed_time': current_time,
-        'difficulty': game['difficulty'],
-        'theme': game['theme']
-    })
-
 if __name__ == '__main__':
     init_db()
-    port = int(os.environ.get('PORT', 10000))
-    app.run(host='0.0.0.0', port=port, debug=False)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=True)
