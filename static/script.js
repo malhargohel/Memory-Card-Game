@@ -17,6 +17,7 @@ class MemoryGame {
         this.newGameBtn = document.getElementById('new-game-btn');
         this.difficultySelect = document.getElementById('difficulty');
         this.themeSelect = document.getElementById('theme');
+        this.cardBackSelect = document.getElementById('card-back');
         
         // Game info displays
         this.movesCount = document.getElementById('moves-count');
@@ -35,6 +36,11 @@ class MemoryGame {
         this.finalTheme = document.getElementById('final-theme');
         this.playAgainBtn = document.getElementById('play-again-btn');
         this.closeModalBtn = document.getElementById('close-modal-btn');
+
+        // Sound Elements
+        this.flipSound = document.getElementById('flip-sound');
+        this.matchSound = document.getElementById('match-sound');
+        this.winSound = document.getElementById('win-sound');
     }
     
     bindEvents() {
@@ -45,19 +51,30 @@ class MemoryGame {
         });
         this.closeModalBtn.addEventListener('click', () => this.hideModal());
         
-        // Close modal when clicking outside
         this.winModal.addEventListener('click', (e) => {
-            if (e.target === this.winModal) {
-                this.hideModal();
-            }
+            if (e.target === this.winModal) this.hideModal();
         });
         
-        // Keyboard controls
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && this.winModal.classList.contains('show')) {
                 this.hideModal();
             }
         });
+    }
+
+    /**
+     * UPDATED - Plays a sound, handling browser autoplay policies.
+     * @param {HTMLAudioElement} soundElement The audio element to play.
+     */
+    async playSound(soundElement) {
+        try {
+            soundElement.currentTime = 0;
+            await soundElement.play();
+        } catch (error) {
+            // This error is common if the user hasn't interacted with the page yet.
+            // We can safely ignore it, as subsequent sounds will likely play.
+            console.log("Could not play sound, likely requires user interaction first.", error);
+        }
     }
     
     async startNewGame() {
@@ -70,15 +87,11 @@ class MemoryGame {
             
             const response = await fetch('/api/new-game', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ difficulty, theme })
             });
             
-            if (!response.ok) {
-                throw new Error('Failed to start new game');
-            }
+            if (!response.ok) throw new Error('Failed to start new game');
             
             const data = await response.json();
             this.gameId = data.game_id;
@@ -96,18 +109,22 @@ class MemoryGame {
     setupGameBoard(cards, gridType) {
         this.gameBoard.innerHTML = '';
         this.gameBoard.className = `game-board grid-${gridType}`;
+        const cardBack = this.cardBackSelect.value;
         
         cards.forEach((card, index) => {
-            const cardElement = this.createCardElement(card, index);
+            const cardElement = this.createCardElement(index, cardBack);
             this.gameBoard.appendChild(cardElement);
         });
     }
     
-    createCardElement(cardValue, index) {
+    createCardElement(index, cardBack) {
         const card = document.createElement('div');
         card.className = 'card';
+        if (cardBack !== 'default') {
+            card.classList.add(cardBack);
+        }
         card.dataset.index = index;
-        card.textContent = cardValue;
+        card.textContent = '❓';
         
         card.addEventListener('click', () => this.handleCardClick(index, card));
         
@@ -115,97 +132,86 @@ class MemoryGame {
     }
     
     async handleCardClick(cardIndex, cardElement) {
-        if (!this.isGameActive || this.isProcessing || 
-            cardElement.classList.contains('flipped') || 
-            cardElement.classList.contains('matched')) {
+        if (!this.isGameActive || this.isProcessing || cardElement.classList.contains('flipped') || cardElement.classList.contains('matched')) {
             return;
         }
         
+        this.isProcessing = true;
+        this.playSound(this.flipSound);
+
         try {
-            this.isProcessing = true;
-            
             const response = await fetch('/api/flip-card', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    game_id: this.gameId,
-                    card_index: cardIndex
-                })
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ game_id: this.gameId, card_index: cardIndex })
             });
             
-            if (!response.ok) {
-                throw new Error('Failed to flip card');
-            }
+            if (!response.ok) throw new Error('Failed to flip card');
             
             const data = await response.json();
-            this.processFlipResponse(data, cardIndex, cardElement);
+            this.processFlipResponse(data, cardElement);
             
         } catch (error) {
             console.error('Error flipping card:', error);
-        } finally {
-            this.isProcessing = false;
+            this.isProcessing = false; // Ensure processing is unlocked on error
         }
     }
     
-    processFlipResponse(data, cardIndex, cardElement) {
-        // Update card display
+    processFlipResponse(data, cardElement) {
         cardElement.textContent = data.card_value;
-        cardElement.classList.add('flipped', 'flip-animation');
+        cardElement.classList.add('flipped');
         
-        // Update game info
         this.movesCount.textContent = data.moves;
         this.pairsCount.textContent = data.pairs_found;
         
-        // Handle matches
-        if (data.match === true && data.matched_indices) {
+        if (data.match === true) {
+            this.playSound(this.matchSound);
             setTimeout(() => {
                 data.matched_indices.forEach(index => {
-                    const card = this.gameBoard.children[index];
+                    const card = this.gameBoard.querySelector(`[data-index="${index}"]`);
                     card.classList.remove('flipped');
                     card.classList.add('matched');
                 });
+                this.isProcessing = false;
             }, 600);
-        } else if (data.match === false && data.flip_back) {
+        } else if (data.match === false) {
             setTimeout(() => {
                 data.flip_back.forEach(index => {
-                    const card = this.gameBoard.children[index];
-                    card.classList.remove('flipped', 'flip-animation');
+                    const card = this.gameBoard.querySelector(`[data-index="${index}"]`);
+                    card.classList.remove('flipped');
                     card.textContent = '❓';
                 });
-            }, 1500);
+                this.isProcessing = false;
+            }, 1200);
+        } else {
+             this.isProcessing = false;
         }
         
-        // Check for game completion
         if (data.game_completed) {
-            setTimeout(() => this.handleGameCompletion(data), 1000);
+            this.handleGameCompletion(data);
         }
     }
     
     handleGameCompletion(data) {
         this.isGameActive = false;
         this.stopTimer();
+        this.playSound(this.winSound);
         
-        // Update modal with results
         this.finalMoves.textContent = data.final_moves;
         this.finalTime.textContent = this.formatTime(data.completion_time);
         this.finalDifficulty.textContent = this.difficultySelect.value.charAt(0).toUpperCase() + this.difficultySelect.value.slice(1);
         this.finalTheme.textContent = this.themeSelect.value.charAt(0).toUpperCase() + this.themeSelect.value.slice(1);
         
-        // Show celebration animation
         this.showWinAnimation();
-        
-        setTimeout(() => this.showModal(), 1000);
+        setTimeout(() => this.showModal(), 500);
     }
     
     showWinAnimation() {
-        // Add celebration effect to all matched cards
         const matchedCards = this.gameBoard.querySelectorAll('.matched');
         matchedCards.forEach((card, index) => {
             setTimeout(() => {
                 card.style.animation = 'pulse 0.5s ease-in-out';
-            }, index * 100);
+            }, index * 50);
         });
     }
     
@@ -248,144 +254,23 @@ class MemoryGame {
     
     showModal() {
         this.winModal.classList.add('show');
-        this.winModal.style.display = 'flex';
     }
     
     hideModal() {
         this.winModal.classList.remove('show');
-        setTimeout(() => {
-            this.winModal.style.display = 'none';
-        }, 300);
     }
 }
 
-// Theme preview functionality
-class ThemePreview {
-    constructor() {
-        this.themeSelect = document.getElementById('theme');
-        this.bindEvents();
-    }
-    
-    bindEvents() {
-        this.themeSelect.addEventListener('change', () => {
-            this.showThemePreview();
-        });
-    }
-    
-    showThemePreview() {
-        // You could add a preview of the theme here
-        // For now, we'll just update the select styling
-        const selectedTheme = this.themeSelect.value;
-        this.themeSelect.style.background = this.getThemeColor(selectedTheme);
-    }
-    
-    getThemeColor(theme) {
-        const colors = {
-            'animals': 'linear-gradient(135deg, #4CAF50, #8BC34A)',
-            'flags': 'linear-gradient(135deg, #2196F3, #03A9F4)',
-            'numbers': 'linear-gradient(135deg, #FF9800, #FFC107)',
-            'food': 'linear-gradient(135deg, #E91E63, #F06292)'
-        };
-        return colors[theme] || '';
-    }
-}
-
-// Keyboard shortcuts
-class KeyboardControls {
-    constructor(game) {
-        this.game = game;
-        this.bindEvents();
-    }
-    
-    bindEvents() {
-        document.addEventListener('keydown', (e) => {
-            // Prevent shortcuts when typing in inputs
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') {
-                return;
-            }
-            
-            switch(e.key.toLowerCase()) {
-                case 'n':
-                    e.preventDefault();
-                    this.game.startNewGame();
-                    break;
-                case ' ':
-                    e.preventDefault();
-                    if (!this.game.isGameActive) {
-                        this.game.startNewGame();
-                    }
-                    break;
-                case '1':
-                case '2':
-                case '3':
-                    e.preventDefault();
-                    const difficulties = ['easy', 'medium', 'hard'];
-                    this.game.difficultySelect.value = difficulties[parseInt(e.key) - 1];
-                    break;
-            }
-        });
-    }
-}
-
-// Performance monitoring
-class GameAnalytics {
-    constructor() {
-        this.gameStats = {
-            gamesPlayed: 0,
-            totalMoves: 0,
-            totalTime: 0,
-            bestTime: Infinity,
-            bestMoves: Infinity
-        };
-        this.loadStats();
-    }
-    
-    recordGame(moves, time, difficulty, theme) {
-        this.gameStats.gamesPlayed++;
-        this.gameStats.totalMoves += moves;
-        this.gameStats.totalTime += time;
-        
-        if (time < this.gameStats.bestTime) {
-            this.gameStats.bestTime = time;
-        }
-        
-        if (moves < this.gameStats.bestMoves) {
-            this.gameStats.bestMoves = moves;
-        }
-        
-        this.saveStats();
-    }
-    
-    loadStats() {
-        const saved = localStorage.getItem('memoryGameStats');
-        if (saved) {
-            this.gameStats = { ...this.gameStats, ...JSON.parse(saved) };
-        }
-    }
-    
-    saveStats() {
-        localStorage.setItem('memoryGameStats', JSON.stringify(this.gameStats));
-    }
-}
-
-// Add CSS for pulse animation
 const style = document.createElement('style');
 style.textContent = `
     @keyframes pulse {
-        0% { transform: scale(1); }
-        50% { transform: scale(1.1); box-shadow: 0 0 20px rgba(76, 175, 80, 0.6); }
-        100% { transform: scale(1); }
+        0% { transform: scale(0.95); }
+        50% { transform: scale(1.05); box-shadow: 0 0 20px rgba(76, 175, 80, 0.6); }
+        100% { transform: scale(0.95); }
     }
 `;
 document.head.appendChild(style);
 
-// Initialize the game when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
-    const game = new MemoryGame();
-    const themePreview = new ThemePreview();
-    const keyboardControls = new KeyboardControls(game);
-    const analytics = new GameAnalytics();
-    
-    // Make analytics available globally for game completion tracking
-    window.gameAnalytics = analytics;
+    new MemoryGame();
 });

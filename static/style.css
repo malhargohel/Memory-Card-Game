@@ -95,11 +95,11 @@ header h1 {
     color: white;
 }
 
-/* Game Controls */
+/* Game Controls - UPDATED */
 .game-controls {
     display: flex;
     justify-content: center;
-    align-items: center;
+    align-items: flex-end; /* This aligns items to the bottom */
     gap: 20px;
     background: var(--card-background);
     padding: 20px;
@@ -112,7 +112,7 @@ header h1 {
 .control-group {
     display: flex;
     flex-direction: column;
-    align-items: center;
+    align-items: flex-start; /* Aligns labels to the left */
     gap: 5px;
 }
 
@@ -122,14 +122,23 @@ header h1 {
 }
 
 select {
-    padding: 8px 12px;
+    padding: 10px 15px; /* Adjusted padding */
     border: 2px solid var(--primary-color);
     border-radius: var(--border-radius);
     background: white;
     color: var(--text-color);
     font-size: 1rem;
     cursor: pointer;
+    height: 44px; /* Set a fixed height */
 }
+
+/* Make button height match the select dropdowns */
+.game-controls .btn-primary {
+    height: 44px;
+    display: flex;
+    align-items: center;
+}
+
 
 select:focus {
     outline: none;
@@ -183,17 +192,14 @@ select:focus {
 
 .game-board.grid-4x3 {
     grid-template-columns: repeat(4, 1fr);
-    grid-template-rows: repeat(3, 1fr);
 }
 
 .game-board.grid-4x4 {
     grid-template-columns: repeat(4, 1fr);
-    grid-template-rows: repeat(4, 1fr);
 }
 
 .game-board.grid-6x4 {
     grid-template-columns: repeat(6, 1fr);
-    grid-template-rows: repeat(4, 1fr);
 }
 
 /* Card Styles */
@@ -211,7 +217,20 @@ select:focus {
     position: relative;
     min-height: 80px;
     box-shadow: var(--shadow);
+    transform-style: preserve-3d;
 }
+
+.card.pattern1:not(.flipped):not(.matched) {
+    background-image: repeating-linear-gradient(45deg, #e3e6ff, #e3e6ff 10px, #ffffff 10px, #ffffff 20px);
+}
+
+.card.pattern2:not(.flipped):not(.matched) {
+    background-image: radial-gradient(#e3e6ff 20%, transparent 20%), radial-gradient(#e3e6ff 20%, transparent 20%);
+    background-color: #ffffff;
+    background-position: 0 0, 30px 30px;
+    background-size: 60px 60px;
+}
+
 
 .card:hover {
     transform: translateY(-5px);
@@ -229,6 +248,7 @@ select:focus {
     color: white;
     cursor: default;
     transform: scale(0.95);
+    border-color: var(--success-color);
 }
 
 .card.flip-animation {
@@ -236,9 +256,8 @@ select:focus {
 }
 
 @keyframes flipCard {
-    0% { transform: rotateY(0deg); }
-    50% { transform: rotateY(90deg); }
-    100% { transform: rotateY(180deg); }
+    from { transform: rotateY(0deg); }
+    to { transform: rotateY(180deg); }
 }
 
 /* Modal Styles */
@@ -314,162 +333,6 @@ select:focus {
     font-size: 1.1rem;
 }
 
-/* Authentication Styles */
-.auth-container {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 100vh;
-    padding: 20px;
-}
-
-.auth-form {
-    background: var(--card-background);
-    padding: 40px;
-    border-radius: var(--border-radius);
-    box-shadow: var(--shadow);
-    width: 100%;
-    max-width: 400px;
-    text-align: center;
-}
-
-.auth-form h1 {
-    color: var(--primary-color);
-    margin-bottom: 10px;
-    font-size: 2rem;
-}
-
-.auth-form h2 {
-    color: var(--text-color);
-    margin-bottom: 30px;
-    font-weight: 500;
-}
-
-.form-group {
-    margin-bottom: 20px;
-    text-align: left;
-}
-
-.form-group label {
-    display: block;
-    margin-bottom: 5px;
-    font-weight: 500;
-    color: var(--text-color);
-}
-
-.form-group input {
-    width: 100%;
-    padding: 12px;
-    border: 2px solid var(--primary-color);
-    border-radius: var(--border-radius);
-    font-size: 1rem;
-    transition: var(--transition);
-}
-
-.form-group input:focus {
-    outline: none;
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.3);
-}
-
-.auth-form .btn {
-    width: 100%;
-    margin-top: 10px;
-    padding: 12px;
-    font-size: 1.1rem;
-}
-
-.auth-link {
-    margin-top: 20px;
-    color: var(--text-color);
-}
-
-.auth-link a {
-    color: var(--primary-color);
-    text-decoration: none;
-    font-weight: 500;
-}
-
-.auth-link a:hover {
-    text-decoration: underline;
-}
-
-.flash-messages {
-    margin-bottom: 20px;
-}
-
-.flash-message {
-    padding: 10px;
-    border-radius: var(--border-radius);
-    margin-bottom: 10px;
-}
-
-.flash-message.error {
-    background: #ffebee;
-    color: var(--error-color);
-    border: 1px solid var(--error-color);
-}
-
-/* Statistics Styles */
-.stats-container {
-    max-width: 1000px;
-    margin: 0 auto;
-}
-
-.stats-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 20px;
-}
-
-.stat-card {
-    background: var(--card-background);
-    padding: 25px;
-    border-radius: var(--border-radius);
-    box-shadow: var(--shadow);
-    border-left: 5px solid var(--primary-color);
-}
-
-.stat-card h3 {
-    color: var(--primary-color);
-    margin-bottom: 20px;
-    font-size: 1.3rem;
-    text-align: center;
-}
-
-.stat-details {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.stat-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px;
-    background: var(--background-color);
-    border-radius: 8px;
-}
-
-.no-stats {
-    text-align: center;
-    background: var(--card-background);
-    padding: 60px 40px;
-    border-radius: var(--border-radius);
-    box-shadow: var(--shadow);
-}
-
-.no-stats h2 {
-    color: var(--primary-color);
-    margin-bottom: 15px;
-}
-
-.no-stats p {
-    color: var(--text-color);
-    margin-bottom: 30px;
-    font-size: 1.1rem;
-}
-
 /* Responsive Design */
 @media (max-width: 768px) {
     .container {
@@ -493,7 +356,7 @@ select:focus {
     
     .game-controls {
         flex-direction: column;
-        gap: 15px;
+        align-items: stretch; /* Make controls take full width on mobile */
     }
     
     .game-info {
@@ -527,7 +390,6 @@ select:focus {
 @media (max-width: 480px) {
     .game-board.grid-6x4 {
         grid-template-columns: repeat(3, 1fr);
-        grid-template-rows: repeat(8, 1fr);
     }
     
     .card {
