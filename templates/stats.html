@@ -116,9 +116,7 @@
             if (confirm('Are you sure you want to reset all your statistics? This cannot be undone.')) {
                 fetch("{{ url_for('reset_stats') }}", {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
+                    headers: {'Content-Type': 'application/json'},
                 })
                 .then(response => response.json())
                 .then(data => {

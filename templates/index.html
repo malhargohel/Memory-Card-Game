@@ -4,99 +4,251 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Memory Card Game</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <!-- CSS styles are embedded directly to prevent loading issues -->
+    <style>
+        :root {
+            --primary-color: #667eea;
+            --secondary-color: #764ba2;
+            --success-color: #4CAF50;
+            --warning-color: #ffc107;
+            --special-color: #ff5722;
+            --info-color: #17a2b8;
+            --text-color: #333;
+            --background-color: #f5f5f5;
+            --card-background: #fff;
+            --border-radius: 12px;
+            --shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            --transition: all 0.3s ease;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            min-height: 100vh;
+            color: var(--text-color);
+        }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        header {
+            background: var(--card-background);
+            padding: 20px 25px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            margin-bottom: 30px;
+        }
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .header-top h1 {
+            color: var(--primary-color);
+            font-size: 2.5rem;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .welcome-message {
+            font-size: 1.1rem;
+            font-weight: 500;
+            color: #555;
+            background: #f0f0f0;
+            padding: 8px 15px;
+            border-radius: 50px;
+        }
+        .user-actions {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 500;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            text-align: center;
+            transition: var(--transition);
+        }
+        .btn-primary { background: linear-gradient(135deg, var(--primary-color), var(--secondary-color)); color: white; }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4); }
+        .btn-secondary { background: #6c757d; color: white; }
+        .btn-info { background: var(--info-color); color: white; }
+        .btn-warning { background: var(--warning-color); color: #333; }
+        .btn-special { background: linear-gradient(135deg, var(--special-color), #ff9800); color: white; }
+        .btn-special:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(255, 87, 34, 0.4); }
+        .game-controls {
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            gap: 20px;
+            background: var(--card-background);
+            padding: 20px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+        .control-group { display: flex; flex-direction: column; gap: 5px; }
+        .control-group label { font-weight: 500; }
+        select, .game-controls .btn { height: 44px; }
+        select { padding: 0 15px; border: 2px solid var(--primary-color); border-radius: var(--border-radius); }
+        .game-info {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            gap: 20px;
+            background: var(--card-background);
+            padding: 20px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        .power-up-container {
+            background: rgba(255, 255, 255, 0.85);
+            padding: 15px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        .power-up-container h4 {
+            margin: 0 0 5px;
+            color: var(--text-color);
+            font-size: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            opacity: 0.7;
+        }
+        /* New style for the rule text */
+        .power-up-rule {
+            font-style: italic;
+            font-size: 0.9rem;
+            color: #666;
+            margin: -5px 0 10px;
+        }
+        #power-up-tray {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            min-height: 50px;
+            align-items: center;
+        }
+        .power-up-btn {
+            font-size: 1.5rem !important;
+            width: 50px;
+            height: 50px;
+            padding: 0;
+            border-radius: 50%;
+        }
+        #timer { font-family: monospace; font-size: 1.8rem; }
+        #timer.frozen { color: #0dcaf0; animation: pulse-frozen 1s infinite; }
+        @keyframes pulse-frozen { 50% { opacity: 0.5; } }
+        .game-board { display: grid; gap: 15px; justify-content: center; margin: 20px auto; max-width: 800px; }
+        .card { aspect-ratio: 1; background: var(--card-background); border: 3px solid var(--primary-color); border-radius: var(--border-radius); display: flex; align-items: center; justify-content: center; font-size: 2rem; cursor: pointer; transition: all 0.4s ease; transform-style: preserve-3d; }
+        .card.peek { border-color: var(--warning-color) !important; transform: scale(1.05); box-shadow: 0 0 20px var(--warning-color); }
+        .card.pattern1:not(.flipped):not(.matched) { background-image: repeating-linear-gradient(45deg, #e3e6ff, #e3e6ff 10px, #ffffff 10px, #ffffff 20px); }
+        .card.pattern2:not(.flipped):not(.matched) { background-image: radial-gradient(#e3e6ff 20%, transparent 20%), radial-gradient(#e3e6ff 20%, transparent 20%); background-color: #ffffff; background-position: 0 0, 30px 30px; background-size: 60px 60px; }
+        .card:hover { transform: translateY(-5px); }
+        .card.flipped { transform: rotateY(180deg); }
+        .card.matched { transform: scale(0.95); cursor: default; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 1000; align-items: center; justify-content: center; padding: 15px; }
+        .modal.show { display: flex; }
+        .modal-content { background: var(--card-background); padding: 30px; border-radius: var(--border-radius); text-align: center; max-width: 500px; width: 100%; }
+        .win-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin: 25px 0; }
+        .stat { background: var(--background-color); padding: 15px; border-radius: var(--border-radius); }
+        .power-up-list { list-style: none; padding: 0; margin: 20px 0; text-align: left; }
+        .power-up-list li { display: flex; align-items: center; gap: 15px; margin-bottom: 10px; }
+        .power-up-list .icon { font-size: 2rem; width: 40px; text-align: center; }
+        .new-achievements { margin-top: 25px; padding: 15px; background: #fffbef; border-radius: var(--border-radius); border: 1px solid var(--warning-color); }
+        .new-achievements h4 { color: var(--text-color); }
+        .achievement-unlocked { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 10px; font-size: 1.1rem; color: var(--text-color); }
+        .achievement-unlocked .icon { font-size: 1.5rem; }
+        .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(150%); background: linear-gradient(135deg, var(--special-color), #ff9800); color: white; padding: 15px 25px; border-radius: 50px; box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2); font-size: 1.1rem; font-weight: 500; z-index: 2000; transition: transform 0.5s ease-in-out; display: flex; align-items: center; gap: 10px; }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+    </style>
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>🧠 Memory Card Game</h1>
-            <div class="user-info">
-                <span>Welcome, {{ session.username }}!</span>
+            <div class="header-top">
+                <h1>🧠 Memory Card Game</h1>
+                <span class="welcome-message">Welcome, {{ session.username }}!</span>
+            </div>
+            <div class="user-actions">
+                <button id="how-to-play-btn" class="btn btn-info">❓ How to Play</button>
+                <a href="{{ url_for('achievements') }}" class="btn btn-warning">🏆 Achievements</a>
                 <a href="{{ url_for('stats') }}" class="btn btn-info">📊 Stats</a>
                 <a href="{{ url_for('logout') }}" class="btn btn-secondary">Logout</a>
             </div>
         </header>
-        
         <div class="game-controls">
-            <div class="control-group">
-                <label for="difficulty">Difficulty:</label>
-                <select id="difficulty">
-                    {% for diff in difficulties %}
-                    <option value="{{ diff }}">{{ diff.title() }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            
-            <div class="control-group">
-                <label for="theme">Theme:</label>
-                <select id="theme">
-                    {% for theme in themes %}
-                    <option value="{{ theme }}">{{ theme.title() }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-
-            <div class="control-group">
-                <label for="card-back">Card Back:</label>
-                <select id="card-back">
-                    <option value="default">Default</option>
-                    <option value="pattern1">Stripes</option>
-                    <option value="pattern2">Dots</option>
-                </select>
-            </div>
-            
+            <div class="control-group"><label for="difficulty">Difficulty:</label><select id="difficulty">{% for diff in difficulties %}<option value="{{ diff }}">{{ diff.title() }}</option>{% endfor %}</select></div>
+            <div class="control-group"><label for="theme">Theme:</label><select id="theme">{% for theme in themes %}<option value="{{ theme }}">{{ theme.title() }}</option>{% endfor %}</select></div>
+            <div class="control-group"><label for="card-back">Card Back:</label><select id="card-back"><option value="default">Default</option><option value="pattern1">Stripes</option><option value="pattern2">Dots</option></select></div>
             <button id="new-game-btn" class="btn btn-primary">🎮 New Game</button>
+            <button id="daily-challenge-btn" class="btn btn-special">🌟 Daily Challenge</button>
         </div>
-        
         <div class="game-info">
-            <div class="info-item">
-                <span class="label">Moves:</span>
-                <span id="moves-count">0</span>
-            </div>
-            <div class="info-item">
-                <span class="label">Pairs:</span>
-                <span id="pairs-count">0</span> / <span id="pairs-total">0</span>
-            </div>
-            <div class="info-item">
-                <span class="label">Time:</span>
-                <span id="timer">00:00</span>
-            </div>
+            <div class="info-item"><span class="label">Moves:</span><span id="moves-count">0</span></div>
+            <div class="info-item"><span class="label">Pairs:</span><span id="pairs-count">0</span> / <span id="pairs-total">0</span></div>
+            <div class="info-item"><span class="label">Time:</span><span id="timer">00:00</span></div>
         </div>
-        
+        <div class="power-up-container">
+            <h4>Power-Ups</h4>
+            <!-- New explainer text for the rule -->
+            <p class="power-up-rule">Make 2 matches in a row to earn a random power-up!</p>
+            <div id="power-up-tray"></div>
+        </div>
         <div id="game-board" class="game-board"></div>
-        
         <div id="win-modal" class="modal">
             <div class="modal-content">
-                <h2>🎉 Congratulations!</h2>
+                <h2 id="win-modal-title">🎉 Congratulations!</h2>
                 <p>You won the game!</p>
                 <div class="win-stats">
-                    <div class="stat">
-                        <span class="stat-label">Moves:</span>
-                        <span id="final-moves">0</span>
-                    </div>
-                    <div class="stat">
-                        <span class="stat-label">Time:</span>
-                        <span id="final-time">00:00</span>
-                    </div>
-                    <div class="stat">
-                        <span class="stat-label">Difficulty:</span>
-                        <span id="final-difficulty">Easy</span>
-                    </div>
-                    <div class="stat">
-                        <span class="stat-label">Theme:</span>
-                        <span id="final-theme">Animals</span>
-                    </div>
+                    <div class="stat"><span class="stat-label">Moves:</span><span id="final-moves">0</span></div>
+                    <div class="stat"><span class="stat-label">Time:</span><span id="final-time">00:00</span></div>
+                    <div class="stat"><span class="stat-label">Difficulty:</span><span id="final-difficulty">Easy</span></div>
+                    <div class="stat"><span class="stat-label">Theme:</span><span id="final-theme">Animals</span></div>
+                </div>
+                <div id="new-achievements-container" class="new-achievements" style="display: none;">
+                    <h4>New Achievements Unlocked!</h4>
+                    <div id="new-achievements-list"></div>
                 </div>
                 <button id="play-again-btn" class="btn btn-primary">🔄 Play Again</button>
                 <button id="close-modal-btn" class="btn btn-secondary">✖️ Close</button>
             </div>
         </div>
+        <div id="info-modal" class="modal">
+            <div class="modal-content">
+                <h2>❓ How to Play</h2>
+                <p>Match all pairs of cards to win. Make <strong>2 matches in a row</strong> to earn a random power-up!</p>
+                <hr>
+                <h4>Power-Ups</h4>
+                <ul class="power-up-list">
+                    <li><span class="icon">👀</span> <strong>Peek:</strong> Briefly reveals 4 random cards.</li>
+                    <li><span class="icon">⏱️</span> <strong>Time Freeze:</strong> Pauses the timer for 5 seconds.</li>
+                </ul>
+                <button id="close-info-modal-btn" class="btn btn-primary">Got it!</button>
+            </div>
+        </div>
     </div>
-    
+    <div id="toast-notification" class="toast"></div>
     <audio id="flip-sound" src="{{ url_for('static', filename='sounds/flip.mp3') }}" preload="auto"></audio>
     <audio id="match-sound" src="{{ url_for('static', filename='sounds/match.mp3') }}" preload="auto"></audio>
     <audio id="win-sound" src="{{ url_for('static', filename='sounds/win.mp3') }}" preload="auto"></audio>
-
     <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>
